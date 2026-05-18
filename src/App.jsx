@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MEMBER_NAMES = ['nabrees', 'himas', 'aroos', 'anoos', 'asloof', 'haseef', 'munshif', 'rila', 'riham']
-const ADMIN_PIN    = '@#Hima1@#'
-const ADMIN_NAME   = 'himas'
+const ADMIN_PIN = '@#Hima1@#'
+const ADMIN_NAME = 'himas'
 
 const GRADIENTS = [
   'from-violet-500 to-purple-700',
@@ -24,7 +24,7 @@ const load = () => { try { const r = localStorage.getItem(KEY); return r ? JSON.
 const persist = (d) => localStorage.setItem(KEY, JSON.stringify(d))
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt  = (n) => `Rs.${Math.abs(n).toLocaleString('en-LK')}`
+const fmt = (n) => `Rs.${Math.abs(n).toLocaleString('en-LK')}`
 const nowStr = () => new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 const todayPrefix = () => new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 const isToday = (d) => d?.startsWith(todayPrefix())
@@ -33,7 +33,7 @@ const todayFull = () => new Date().toLocaleDateString('en-IN', { weekday: 'long'
 // Derive members + balances from transactions
 const computeMembers = (txs) =>
   MEMBER_NAMES.map((name, i) => {
-    const id  = i + 1
+    const id = i + 1
     const bal = txs.filter(t => t.memberId === id).reduce((s, t) => t.type === 'deposit' ? s + t.amount : s - t.amount, 0)
     return { id, name, balance: bal }
   })
@@ -41,7 +41,7 @@ const computeMembers = (txs) =>
 // ─── EditableRow ──────────────────────────────────────────────────────────────
 function EditableRow({ tx, onSave, onDelete }) {
   const [editing, setEditing] = useState(false)
-  const [amt,  setAmt]  = useState(String(tx.amount))
+  const [amt, setAmt] = useState(String(tx.amount))
   const [note, setNote] = useState(tx.note)
 
   const handleSave = () => {
@@ -111,21 +111,21 @@ function EditableRow({ tx, onSave, onDelete }) {
 
 // ─── PersonModal ──────────────────────────────────────────────────────────────
 function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEditTx, onDeleteTx }) {
-  const [tab,    setTab]    = useState('cash') // 'cash' | 'expense' | 'history'
+  const [tab, setTab] = useState('cash') // 'cash' | 'expense' | 'history'
   const [amount, setAmount] = useState('')
-  const [note,   setNote]   = useState('')
-  const [err,    setErr]    = useState('')
-  const [flash,  setFlash]  = useState(false)
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  const [flash, setFlash] = useState(false)
 
   const memberTxs = allTxs.filter(t => t.memberId === member.id)
-  const todayTxs  = memberTxs.filter(t => isToday(t.date))
+  const todayTxs = memberTxs.filter(t => isToday(t.date))
 
-  const todayCash    = todayTxs.filter(t => t.type === 'deposit')
-  const todayExp     = todayTxs.filter(t => t.type === 'deduction')
+  const todayCash = todayTxs.filter(t => t.type === 'deposit')
+  const todayExp = todayTxs.filter(t => t.type === 'deduction')
   const todayCashSum = todayCash.reduce((s, t) => s + t.amount, 0)
-  const todayExpSum  = todayExp.reduce((s, t)  => s + t.amount, 0)
-  const totalAdded   = memberTxs.filter(t => t.type === 'deposit').reduce((s, t)   => s + t.amount, 0)
-  const totalSpent   = memberTxs.filter(t => t.type === 'deduction').reduce((s, t) => s + t.amount, 0)
+  const todayExpSum = todayExp.reduce((s, t) => s + t.amount, 0)
+  const totalAdded = memberTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0)
+  const totalSpent = memberTxs.filter(t => t.type === 'deduction').reduce((s, t) => s + t.amount, 0)
 
   useEffect(() => {
     const h = e => e.key === 'Escape' && onClose()
@@ -146,13 +146,13 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
     setTimeout(() => setFlash(false), 2000)
   }
 
-  const activeList  = tab === 'cash' ? todayCash : (tab === 'expense' ? todayExp : [])
-  const tabLabel    = tab === 'cash' ? "Today's Cash Added" : "Today's Expenses"
-  const tabSum      = tab === 'cash' ? todayCashSum : todayExpSum
-  const tabColor    = tab === 'cash' ? 'text-emerald-400' : 'text-red-400'
-  const tabBg       = tab === 'cash' ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-red-500/10 border-red-500/25'
+  const activeList = tab === 'cash' ? todayCash : (tab === 'expense' ? todayExp : [])
+  const tabLabel = tab === 'cash' ? "Today's Cash Added" : "Today's Expenses"
+  const tabSum = tab === 'cash' ? todayCashSum : todayExpSum
+  const tabColor = tab === 'cash' ? 'text-emerald-400' : 'text-red-400'
+  const tabBg = tab === 'cash' ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-red-500/10 border-red-500/25'
   const placeholder = tab === 'cash' ? 'Enter cash amount (₹)' : 'Enter expense amount (₹)'
-  const noteHolder  = tab === 'cash' ? 'Note e.g. Monthly share' : 'Note e.g. Groceries, Cooking gas'
+  const noteHolder = tab === 'cash' ? 'Note e.g. Monthly share' : 'Note e.g. Groceries, Cooking gas'
 
   return (
     <div
@@ -210,18 +210,17 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
         {/* ── Tabs ── */}
         <div className="flex gap-1 p-3 bg-white/2 border-b border-white/5 flex-shrink-0">
           {[
-            { id: 'cash',    icon: '💰', label: 'Add Cash' },
+            { id: 'cash', icon: '💰', label: 'Add Cash' },
             { id: 'expense', icon: '📉', label: 'Add Expense' },
             { id: 'history', icon: '📋', label: 'All History' },
           ].map(t => (
             <button
               key={t.id}
               onClick={() => { setTab(t.id); setErr(''); setAmount(''); setNote('') }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-                tab === t.id
-                  ? t.id === 'cash' ? 'bg-emerald-600 text-white' : t.id === 'expense' ? 'bg-red-600 text-white' : 'bg-violet-600 text-white'
-                  : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${tab === t.id
+                ? t.id === 'cash' ? 'bg-emerald-600 text-white' : t.id === 'expense' ? 'bg-red-600 text-white' : 'bg-violet-600 text-white'
+                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                }`}
             >
               <span>{t.icon}</span> {t.label}
             </button>
@@ -287,13 +286,12 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
                   {err && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{err}</p>}
                   <button
                     onClick={handleSave}
-                    className={`btn-ripple w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-98 ${
-                      flash
-                        ? 'bg-emerald-600 text-white'
-                        : tab === 'cash'
-                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30'
-                          : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-900/30'
-                    }`}
+                    className={`btn-ripple w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-98 ${flash
+                      ? 'bg-emerald-600 text-white'
+                      : tab === 'cash'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30'
+                        : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-900/30'
+                      }`}
                   >
                     {flash ? '✓ Saved!' : tab === 'cash' ? '💾 Save Cash' : '💾 Save Expense'}
                   </button>
@@ -333,10 +331,11 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
   )
 }
 
-// ─── AdminLogin ───────────────────────────────────────────────────────────────
+// ─── AdminLogin (FIXED - allows full password with special characters) ───────
 function AdminLogin({ onSuccess, onClose }) {
   const [pin, setPin] = useState('')
   const [err, setErr] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     const h = e => e.key === 'Escape' && onClose()
@@ -346,7 +345,7 @@ function AdminLogin({ onSuccess, onClose }) {
 
   const go = () => {
     if (pin === ADMIN_PIN) { onSuccess() }
-    else { setErr('Wrong PIN. Try again.'); setPin('') }
+    else { setErr('Wrong password. Try again.'); setPin('') }
   }
 
   return (
@@ -359,21 +358,33 @@ function AdminLogin({ onSuccess, onClose }) {
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-3xl mx-auto mb-5 shadow-xl shadow-violet-900/50">🔐</div>
         <h3 className="text-white font-black text-xl mb-1">Admin Access</h3>
         <p className="text-slate-400 text-sm mb-6">Only <span className="text-violet-300 font-semibold">{ADMIN_NAME}</span> can make changes</p>
-        <input
-          autoFocus
-          type="password"
-          inputMode="numeric"
-          maxLength={8}
-          placeholder="Enter PIN"
-          value={pin}
-          onChange={e => { setPin(e.target.value); setErr('') }}
-          onKeyDown={e => e.key === 'Enter' && go()}
-          className="w-full bg-white/8 border border-white/12 rounded-2xl px-4 py-4 text-white text-center text-2xl font-bold placeholder-slate-600 focus:outline-none focus:border-violet-500/70 transition-all mb-3 tracking-[.5em]"
-        />
+
+        {/* Fixed password input - now accepts ALL characters */}
+        <div className="relative">
+          <input
+            autoFocus
+            type={showPassword ? "text" : "password"}
+            placeholder="Enter password"
+            value={pin}
+            onChange={e => { setPin(e.target.value); setErr('') }}
+            onKeyDown={e => e.key === 'Enter' && go()}
+            className="w-full bg-white/8 border border-white/12 rounded-2xl px-4 py-4 text-white text-center text-lg placeholder-slate-600 focus:outline-none focus:border-violet-500/70 transition-all mb-3"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-all text-xl"
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
+
         {err && <p className="text-red-400 text-sm mb-3 bg-red-500/10 rounded-xl py-2">{err}</p>}
+
         <button onClick={go} className="btn-ripple w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-2xl py-4 font-bold text-lg mb-3 transition-all active:scale-98">
           Unlock
         </button>
+
         <button onClick={onClose} className="text-slate-500 text-sm hover:text-slate-300 transition-colors w-full py-2">Cancel</button>
         <div className="h-3" />
       </div>
@@ -383,12 +394,12 @@ function AdminLogin({ onSuccess, onClose }) {
 
 // ─── MemberCard ───────────────────────────────────────────────────────────────
 function MemberCard({ member, gradient, isAdmin, onClick, allTxs }) {
-  const memberTxs  = allTxs.filter(t => t.memberId === member.id)
-  const todayTxs   = memberTxs.filter(t => isToday(t.date))
-  const todayCash  = todayTxs.filter(t => t.type === 'deposit').reduce((s,t) => s + t.amount, 0)
-  const todaySpent = todayTxs.filter(t => t.type === 'deduction').reduce((s,t) => s + t.amount, 0)
-  const isNeg      = member.balance < 0
-  const barPct     = Math.min((Math.abs(member.balance) / 5000) * 100, 100)
+  const memberTxs = allTxs.filter(t => t.memberId === member.id)
+  const todayTxs = memberTxs.filter(t => isToday(t.date))
+  const todayCash = todayTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0)
+  const todaySpent = todayTxs.filter(t => t.type === 'deduction').reduce((s, t) => s + t.amount, 0)
+  const isNeg = member.balance < 0
+  const barPct = Math.min((Math.abs(member.balance) / 5000) * 100, 100)
 
   return (
     <div
@@ -422,7 +433,7 @@ function MemberCard({ member, gradient, isAdmin, onClick, allTxs }) {
 
       {(todayCash > 0 || todaySpent > 0) ? (
         <div className="flex gap-1.5 flex-wrap">
-          {todayCash  > 0 && <span className="text-xs bg-emerald-500/12 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">+{fmt(todayCash)}</span>}
+          {todayCash > 0 && <span className="text-xs bg-emerald-500/12 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">+{fmt(todayCash)}</span>}
           {todaySpent > 0 && <span className="text-xs bg-red-500/12 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full">-{fmt(todaySpent)}</span>}
         </div>
       ) : (
@@ -434,18 +445,18 @@ function MemberCard({ member, gradient, isAdmin, onClick, allTxs }) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [data,           setData]           = useState(load)
-  const [isAdmin,        setIsAdmin]        = useState(false)
-  const [showLogin,      setShowLogin]      = useState(false)
+  const [data, setData] = useState(load)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showLogin, setShowLogin] = useState(false)
   const [selectedMember, setSelectedMember] = useState(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   const { transactions, deductCount } = data
   useEffect(() => { persist(data) }, [data])
 
-  const members      = useMemo(() => computeMembers(transactions), [transactions])
+  const members = useMemo(() => computeMembers(transactions), [transactions])
   const totalBalance = members.reduce((s, m) => s + m.balance, 0)
-  const posCount     = members.filter(m => m.balance >= 0).length
+  const posCount = members.filter(m => m.balance >= 0).length
 
   // ── Add transaction ──
   const handleAddTx = useCallback((tx) => {
@@ -464,8 +475,6 @@ export default function App() {
   const handleDeleteTx = useCallback((id) => {
     setData(prev => ({ ...prev, transactions: prev.transactions.filter(t => t.id !== id) }))
   }, [])
-
-
 
   // ── Reset ──
   const handleReset = useCallback(() => {
