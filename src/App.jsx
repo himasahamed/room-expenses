@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MEMBER_NAMES = ['nabrees', 'himas', 'aroos', 'anoos', 'asloof', 'haseef', 'munshif', 'rila', 'riham']
-const ADMIN_PIN    = '1234'
+const ADMIN_PIN    = '@#Hima1@#'
 const ADMIN_NAME   = 'himas'
 
 const GRADIENTS = [
