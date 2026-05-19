@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { supabase } from './lib/supabase'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MEMBER_NAMES = ['nabrees', 'himas', 'aroos', 'anoos', 'asloof', 'haseef', 'munshif', 'rila', 'riham']
@@ -17,12 +18,6 @@ const GRADIENTS = [
   'from-red-500 to-orange-700',
 ]
 
-// ─── Storage ──────────────────────────────────────────────────────────────────
-const KEY = 'room_tracker_v4'
-const defaultData = () => ({ transactions: [], deductCount: 0 })
-const load = () => { try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : defaultData() } catch { return defaultData() } }
-const persist = (d) => localStorage.setItem(KEY, JSON.stringify(d))
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n) => `Rs.${Math.abs(n).toLocaleString('en-LK')}`
 const nowStr = () => new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -34,7 +29,7 @@ const todayFull = () => new Date().toLocaleDateString('en-IN', { weekday: 'long'
 const computeMembers = (txs) =>
   MEMBER_NAMES.map((name, i) => {
     const id = i + 1
-    const bal = txs.filter(t => t.memberId === id).reduce((s, t) => t.type === 'deposit' ? s + t.amount : s - t.amount, 0)
+    const bal = txs.filter(t => t.member_id === id).reduce((s, t) => t.type === 'deposit' ? s + t.amount : s - t.amount, 0)
     return { id, name, balance: bal }
   })
 
@@ -43,11 +38,14 @@ function EditableRow({ tx, onSave, onDelete }) {
   const [editing, setEditing] = useState(false)
   const [amt, setAmt] = useState(String(tx.amount))
   const [note, setNote] = useState(tx.note)
+  const [saving, setSaving] = useState(false)
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const val = parseFloat(amt)
     if (!val || val <= 0) return
-    onSave(tx.id, val, note.trim() || tx.note)
+    setSaving(true)
+    await onSave(tx.id, val, note.trim() || tx.note)
+    setSaving(false)
     setEditing(false)
   }
 
@@ -63,6 +61,7 @@ function EditableRow({ tx, onSave, onDelete }) {
           onKeyDown={e => e.key === 'Enter' && handleSave()}
           className="w-full bg-white/8 border border-white/12 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500/70 transition-all"
           autoFocus
+          disabled={saving}
         />
         <input
           type="text"
@@ -71,15 +70,16 @@ function EditableRow({ tx, onSave, onDelete }) {
           onKeyDown={e => e.key === 'Enter' && handleSave()}
           placeholder="Note"
           className="w-full bg-white/8 border border-white/12 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500/70 transition-all"
+          disabled={saving}
         />
         <div className="flex gap-2">
-          <button onClick={handleSave} className="flex-1 bg-violet-600 hover:bg-violet-500 text-white rounded-xl py-2 text-sm font-bold transition-all">
-            ✓ Update
+          <button disabled={saving} onClick={handleSave} className="flex-1 bg-violet-600 hover:bg-violet-500 text-white rounded-xl py-2 text-sm font-bold transition-all disabled:opacity-50">
+            {saving ? '⏳...' : '✓ Update'}
           </button>
-          <button onClick={() => setEditing(false)} className="flex-1 bg-white/8 hover:bg-white/12 text-slate-300 rounded-xl py-2 text-sm transition-all">
+          <button disabled={saving} onClick={() => setEditing(false)} className="flex-1 bg-white/8 hover:bg-white/12 text-slate-300 rounded-xl py-2 text-sm transition-all disabled:opacity-50">
             Cancel
           </button>
-          <button onClick={() => onDelete(tx.id)} className="bg-red-500/20 hover:bg-red-500/35 text-red-400 rounded-xl px-3 py-2 text-sm transition-all">
+          <button disabled={saving} onClick={() => onDelete(tx.id)} className="bg-red-500/20 hover:bg-red-500/35 text-red-400 rounded-xl px-3 py-2 text-sm transition-all disabled:opacity-50">
             🗑
           </button>
         </div>
@@ -116,8 +116,9 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
   const [flash, setFlash] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const memberTxs = allTxs.filter(t => t.memberId === member.id)
+  const memberTxs = allTxs.filter(t => t.member_id === member.id)
   const todayTxs = memberTxs.filter(t => isToday(t.date))
 
   const todayCash = todayTxs.filter(t => t.type === 'deposit')
@@ -133,12 +134,22 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const val = parseFloat(amount)
     if (!val || val <= 0) { setErr('Enter a valid amount'); return }
     const type = tab === 'cash' ? 'deposit' : 'deduction'
     const defaultNote = tab === 'cash' ? 'Cash added' : 'Expense'
-    onAddTx({ id: Date.now() + Math.random(), memberId: member.id, type, amount: val, note: note.trim() || defaultNote, date: nowStr() })
+    
+    setSaving(true)
+    await onAddTx({
+      member_id: member.id,
+      type,
+      amount: val,
+      note: note.trim() || defaultNote,
+      date: nowStr()
+    })
+    setSaving(false)
+    
     setAmount('')
     setNote('')
     setErr('')
@@ -151,7 +162,7 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
   const tabSum = tab === 'cash' ? todayCashSum : todayExpSum
   const tabColor = tab === 'cash' ? 'text-emerald-400' : 'text-red-400'
   const tabBg = tab === 'cash' ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-red-500/10 border-red-500/25'
-  const placeholder = tab === 'cash' ? 'Enter cash amount (₹)' : 'Enter expense amount (₹)'
+  const placeholder = tab === 'cash' ? 'Enter cash amount' : 'Enter expense amount'
   const noteHolder = tab === 'cash' ? 'Note e.g. Monthly share' : 'Note e.g. Groceries, Cooking gas'
 
   return (
@@ -161,7 +172,6 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div className="modal-panel glass w-full sm:max-w-md sm:mx-4 sm:rounded-3xl rounded-t-3xl max-h-[94vh] flex flex-col overflow-hidden">
-
         {/* ── Gradient header ── */}
         <div className={`bg-gradient-to-br ${gradient} p-5 flex-shrink-0`}>
           <div className="flex items-center gap-3 mb-4">
@@ -175,7 +185,6 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
             <button onClick={onClose} className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/35 flex items-center justify-center text-white text-lg transition-all flex-shrink-0">✕</button>
           </div>
 
-          {/* Balance tiles */}
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-white/15 rounded-2xl p-3 text-center">
               <p className="text-white/60 text-xs leading-tight mb-1">Total Added</p>
@@ -229,11 +238,8 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
 
         {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-
-          {/* ADD CASH / ADD EXPENSE tab */}
           {(tab === 'cash' || tab === 'expense') && (
             <>
-              {/* Today's summary for this tab */}
               <div className={`rounded-2xl border p-4 ${tabBg}`}>
                 <p className={`text-xs font-semibold mb-1 ${tabColor} opacity-80`}>{tabLabel}</p>
                 <p className={`font-black text-2xl ${tabColor}`}>
@@ -244,22 +250,15 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
                 )}
               </div>
 
-              {/* Today's entries with edit */}
               {activeList.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Today's entries</p>
-                  {[...activeList].reverse().map(tx => (
-                    <EditableRow
-                      key={tx.id}
-                      tx={tx}
-                      onSave={onEditTx}
-                      onDelete={onDeleteTx}
-                    />
+                  {[...activeList].map(tx => ( // Do NOT reverse here because Supabase data is already loaded in reverse (newest first)
+                    <EditableRow key={tx.id} tx={tx} onSave={onEditTx} onDelete={onDeleteTx} />
                   ))}
                 </div>
               )}
 
-              {/* Add new form — admin only */}
               {isAdmin ? (
                 <div className="space-y-2">
                   <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">
@@ -286,14 +285,15 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
                   {err && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{err}</p>}
                   <button
                     onClick={handleSave}
-                    className={`btn-ripple w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-98 ${flash
+                    disabled={saving}
+                    className={`btn-ripple w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-98 disabled:opacity-50 ${flash
                       ? 'bg-emerald-600 text-white'
                       : tab === 'cash'
                         ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30'
                         : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-900/30'
                       }`}
                   >
-                    {flash ? '✓ Saved!' : tab === 'cash' ? '💾 Save Cash' : '💾 Save Expense'}
+                    {saving ? '⏳ Saving to could...' : flash ? '✓ Saved!' : tab === 'cash' ? '💾 Save Cash' : '💾 Save Expense'}
                   </button>
                 </div>
               ) : (
@@ -302,7 +302,6 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
             </>
           )}
 
-          {/* HISTORY tab — all transactions */}
           {tab === 'history' && (
             <div className="space-y-2">
               {memberTxs.length === 0 ? (
@@ -311,20 +310,13 @@ function PersonModal({ member, allTxs, gradient, isAdmin, onClose, onAddTx, onEd
                   <p className="text-slate-500 text-sm">No transactions yet</p>
                 </div>
               ) : (
-                [...memberTxs].reverse().map(tx => (
-                  <EditableRow
-                    key={tx.id}
-                    tx={tx}
-                    onSave={onEditTx}
-                    onDelete={onDeleteTx}
-                  />
+                [...memberTxs].map(tx => (
+                  <EditableRow key={tx.id} tx={tx} onSave={onEditTx} onDelete={onDeleteTx} />
                 ))
               )}
             </div>
           )}
         </div>
-
-        {/* Safe area */}
         <div className="flex-shrink-0 h-3" />
       </div>
     </div>
@@ -359,7 +351,6 @@ function AdminLogin({ onSuccess, onClose }) {
         <h3 className="text-white font-black text-xl mb-1">Admin Access</h3>
         <p className="text-slate-400 text-sm mb-6">Only <span className="text-violet-300 font-semibold">{ADMIN_NAME}</span> can make changes</p>
 
-        {/* Fixed password input - now accepts ALL characters */}
         <div className="relative">
           <input
             autoFocus
@@ -394,7 +385,7 @@ function AdminLogin({ onSuccess, onClose }) {
 
 // ─── MemberCard ───────────────────────────────────────────────────────────────
 function MemberCard({ member, gradient, isAdmin, onClick, allTxs }) {
-  const memberTxs = allTxs.filter(t => t.memberId === member.id)
+  const memberTxs = allTxs.filter(t => t.member_id === member.id)
   const todayTxs = memberTxs.filter(t => isToday(t.date))
   const todayCash = todayTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0)
   const todaySpent = todayTxs.filter(t => t.type === 'deduction').reduce((s, t) => s + t.amount, 0)
@@ -411,7 +402,7 @@ function MemberCard({ member, gradient, isAdmin, onClick, allTxs }) {
           {member.name[0]}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
+           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="text-white font-bold text-sm capitalize">{member.name}</p>
             {isAdmin && member.name === ADMIN_NAME && (
               <span className="text-xs bg-violet-500/25 text-violet-300 border border-violet-500/30 px-1.5 py-0.5 rounded-full">admin</span>
@@ -445,49 +436,122 @@ function MemberCard({ member, gradient, isAdmin, onClick, allTxs }) {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [data, setData] = useState(load)
+  const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const [selectedMember, setSelectedMember] = useState(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
-  const { transactions, deductCount } = data
-  useEffect(() => { persist(data) }, [data])
+  // ── Load from Supabase on Mount ──
+  useEffect(() => {
+    loadTransactions()
+  }, [])
+
+  const loadTransactions = async () => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false }) // newest first
+
+      if (error) throw error
+      setTransactions(data || [])
+    } catch (error) {
+      console.error('Error loading transactions:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const members = useMemo(() => computeMembers(transactions), [transactions])
   const totalBalance = members.reduce((s, m) => s + m.balance, 0)
   const posCount = members.filter(m => m.balance >= 0).length
 
-  // ── Add transaction ──
-  const handleAddTx = useCallback((tx) => {
-    setData(prev => ({ ...prev, transactions: [...prev.transactions, tx] }))
+  // ── Add transaction to Supabase ──
+  const handleAddTx = useCallback(async (tx) => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert([tx])
+        .select()
+
+      if (error) throw error
+      if (data && data.length > 0) {
+        setTransactions(prev => [data[0], ...prev])
+      }
+    } catch (error) {
+      console.error('Error adding transaction:', error)
+      alert('Failed to add transaction. Check console for details.')
+    }
   }, [])
 
-  // ── Edit transaction ──
-  const handleEditTx = useCallback((id, newAmount, newNote) => {
-    setData(prev => ({
-      ...prev,
-      transactions: prev.transactions.map(t => t.id === id ? { ...t, amount: newAmount, note: newNote } : t)
-    }))
+  // ── Edit transaction in Supabase ──
+  const handleEditTx = useCallback(async (id, newAmount, newNote) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ amount: newAmount, note: newNote })
+        .eq('id', id)
+
+      if (error) throw error
+      setTransactions(prev => prev.map(t => t.id === id ? { ...t, amount: newAmount, note: newNote } : t))
+    } catch (error) {
+      console.error('Error editing transaction:', error)
+      alert('Failed to edit transaction.')
+    }
   }, [])
 
-  // ── Delete transaction ──
-  const handleDeleteTx = useCallback((id) => {
-    setData(prev => ({ ...prev, transactions: prev.transactions.filter(t => t.id !== id) }))
+  // ── Delete transaction from Supabase ──
+  const handleDeleteTx = useCallback(async (id) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      setTransactions(prev => prev.filter(t => t.id !== id))
+    } catch (error) {
+      console.error('Error deleting transaction:', error)
+      alert('Failed to delete transaction.')
+    }
   }, [])
 
-  // ── Reset ──
-  const handleReset = useCallback(() => {
-    setData(defaultData())
-    setSelectedMember(null)
-    setShowResetConfirm(false)
+  // ── Reset all transactions ──
+  const handleReset = useCallback(async () => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .neq('id', '0') // Deletes all rows
+
+      if (error) throw error
+      setTransactions([])
+      setSelectedMember(null)
+      setShowResetConfirm(false)
+    } catch (error) {
+      console.error('Error resetting data:', error)
+      alert('Failed to reset data.')
+    }
   }, [])
 
   const activeMember = selectedMember ? members.find(m => m.id === selectedMember.id) : null
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#090912] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-violet-500/30 border-t-violet-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 font-semibold uppercase tracking-wider text-sm">Loading from Cloud...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#090912] pb-10">
-      {/* Blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-48 -left-48 w-96 h-96 bg-violet-700/12 rounded-full blur-3xl" />
         <div className="absolute top-1/3 -right-48 w-96 h-96 bg-indigo-700/8 rounded-full blur-3xl" />
@@ -495,8 +559,6 @@ export default function App() {
       </div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-6 pt-5">
-
-        {/* ── Navbar ── */}
         <nav className="flex items-center justify-between mb-5">
           <div>
             <div className="inline-flex items-center gap-1.5 bg-violet-500/12 border border-violet-500/20 rounded-full px-3 py-1 text-violet-300 text-xs font-semibold uppercase tracking-wider mb-1.5">
@@ -519,7 +581,6 @@ export default function App() {
           </div>
         </nav>
 
-        {/* ── Stats ── */}
         <div className="glass glow-card rounded-2xl p-4 mb-4">
           <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Total Group Balance</p>
           <p className={`text-3xl sm:text-4xl font-black ${totalBalance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -531,7 +592,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── Admin bar ── */}
         {isAdmin && (
           <div className="glass border border-violet-500/15 rounded-2xl p-3.5 mb-4 slide-down">
             <div className="flex items-center justify-between gap-2">
@@ -546,7 +606,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ── Members grid ── */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-white font-bold text-base sm:text-lg">👥 All Members <span className="text-slate-600 font-normal text-xs sm:text-sm ml-1">tap to manage</span></h2>
           <span className="text-slate-600 text-xs">{todayFull().split(',')[0]}</span>
@@ -565,7 +624,6 @@ export default function App() {
           ))}
         </div>
 
-        {/* ── Recent activity ── */}
         {transactions.length > 0 && (
           <>
             <h2 className="text-white font-bold text-base sm:text-lg mb-3">
@@ -573,8 +631,8 @@ export default function App() {
               <span className="ml-2 bg-white/6 text-slate-400 text-xs px-2 py-0.5 rounded-full">{transactions.length}</span>
             </h2>
             <div className="glass rounded-2xl p-4 divide-y divide-white/4">
-              {[...transactions].reverse().slice(0, 12).map(tx => {
-                const m = members.find(x => x.id === tx.memberId)
+              {[...transactions].slice(0, 12).map(tx => {
+                const m = members.find(x => x.id === tx.member_id)
                 return (
                   <div key={tx.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm flex-shrink-0 ${tx.type === 'deposit' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
@@ -596,16 +654,15 @@ export default function App() {
           </>
         )}
 
-        <p className="text-center text-slate-700 text-xs mt-8">Saved in browser · ₹100/day/person · 9 members</p>
+        <p className="text-center text-slate-700 text-xs mt-8">☁️ Cloud Synced with Supabase · 9 members</p>
       </div>
 
-      {/* ── Reset confirm ── */}
       {showResetConfirm && (
         <div className="modal-bg fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)' }}>
           <div className="modal-panel glass rounded-3xl p-8 w-full max-w-sm text-center">
             <div className="text-5xl mb-4">⚠️</div>
             <h3 className="text-white font-black text-xl mb-2">Reset All Data?</h3>
-            <p className="text-slate-400 text-sm mb-6">This will delete ALL transactions and balances for all 9 members. This cannot be undone.</p>
+            <p className="text-slate-400 text-sm mb-6">This will delete ALL transactions for all 9 members from the cloud. This cannot be undone.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowResetConfirm(false)} className="flex-1 bg-white/8 hover:bg-white/12 text-slate-300 rounded-2xl py-3 font-semibold transition-all">Cancel</button>
               <button onClick={handleReset} className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-2xl py-3 font-bold transition-all">Yes, Reset</button>
@@ -614,7 +671,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Modals ── */}
       {showLogin && <AdminLogin onSuccess={() => { setIsAdmin(true); setShowLogin(false) }} onClose={() => setShowLogin(false)} />}
 
       {activeMember && (
